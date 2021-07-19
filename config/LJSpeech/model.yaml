@@ -1,0 +1,66 @@
+common:
+  num_samples: 1
+  latent_dim: 128
+  output_dim: 80
+  final_reduction_factor: 2
+  max_reduction_factor: 5
+  mel_text_len_ratio: 5.59
+
+transformer:
+  encoder:
+    # vocab_size: 43
+    embd_dim: 512
+    n_conv: 3
+    pre_hidden: 512
+    conv_kernel: 5
+    pre_activation: "relu"
+    pre_drop_rate: 0.1
+    pos_drop_rate: 0.1
+    bn_before_act: False
+    n_blk: 4
+    attention_dim: 256
+    attention_heads: 4
+    attention_temperature: 1.0
+    ffn_hidden: 1024
+  decoder:
+    # pre_hidden: 128
+    # pre_drop_rate: 0.5
+    # pre_activation: "relu"
+    nblk: 2
+    attention_dim: 256
+    attention_heads: 4
+    ffn_hidden: 1024
+    attention_temperature: 1.
+    post_n_conv: 5
+    post_conv_filters: 256
+    post_conv_kernel: 5
+    post_drop_rate: 0.2
+  posterior:
+    pre_hidden: 256
+    pos_drop_rate: 0.2
+    pre_drop_rate: 0.5
+    pre_activation: "relu"
+    bn_before_act: False
+    nblk: 2
+    attention_dim: 256
+    attention_heads: 4
+    temperature: 1.0
+    ffn_hidden: 1024
+  prior:
+    n_blk: 6
+    n_transformer_blk: 2
+    attention_dim: 256
+    attention_heads: 4
+    temperature: 1.0
+    ffn_hidden: 1024
+    inverse: False
+
+length_predictor:
+  dense:
+    activation: "identity"
+
+max_seq_len: 1000
+
+vocoder:
+  model: "Griffin-Lim" # support 'HiFi-GAN', 'MelGAN', 'Griffin-Lim'
+  speaker: "LJSpeech" # support  'LJSpeech', 'universal'
