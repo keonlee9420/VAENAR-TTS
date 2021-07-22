@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from .utils import LinearNorm, PostNet
-from .attention import CrossAttentionBLK
+from .attention import CrossAttentionBlock
 from utils.tools import get_mask_from_lengths
 
 
@@ -67,12 +67,12 @@ class TransformerDecoder(BaseDecoder):
         self.pre_projection = LinearNorm(latent_dim, attention_dim)
         self.attentions = nn.ModuleList(
             [
-                CrossAttentionBLK(input_dim=attention_dim,
-                                memory_dim=embd_dim,
-                                attention_dim=attention_dim,
-                                attention_heads=attention_heads,
-                                attention_temperature=temperature,
-                                ffn_hidden=ffn_hidden, name='decoder-attention-{}'.format(i))
+                CrossAttentionBlock(input_dim=attention_dim,
+                                    memory_dim=embd_dim,
+                                    attention_dim=attention_dim,
+                                    attention_heads=attention_heads,
+                                    attention_temperature=temperature,
+                                    ffn_hidden=ffn_hidden, name='decoder-attention-{}'.format(i))
                 for i in range(nblk)
             ]
         )

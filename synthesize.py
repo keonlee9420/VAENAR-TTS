@@ -43,26 +43,18 @@ def synthesize(model, step, configs, vocoder, audio_processor, batchs, temperatu
     for batch in batchs:
         batch = to_device(batch, device)
         with torch.no_grad():
-            t, t_l = batch[3], batch[4]
-            text_pos_step = model.mel_text_len_ratio / float(final_reduction_factor)
-            text_embd = model.text_encoder(t, t_l, pos_step=text_pos_step)
-            predicted_lengths = model.length_predictor(
-                text_embd.detach(), t_l)
-            predicted_m_l = predicted_lengths.type(torch.int32)
-            reduced_pred_ml = (predicted_m_l + 80 + final_reduction_factor - 1
-                            ) // final_reduction_factor
-            prior_latents, prior_logprobs = model.prior.sample(
-                reduced_pred_ml, text_embd, t_l, temperature=temperature)
-            _, prior_dec_outs, prior_dec_alignments = model.decoder(
-                prior_latents, text_embd, reduced_pred_ml, t_l)
+            texts, text_lengths = batch[3], batch[4]
+
+            mel, mel_lengths, reduced_mel_lengths, alignments, *_ = model.inference(
+                inputs=texts, text_lengths=text_lengths, reduction_factor=final_reduction_factor)
 
             synth_samples(
                 batch,
-                prior_dec_outs,
-                predicted_m_l + 80,
-                reduced_pred_ml,
-                t_l,
-                prior_dec_alignments,
+                mel,
+                mel_lengths,
+                reduced_mel_lengths,
+                text_lengths,
+                alignments,
                 vocoder,
                 audio_processor,
                 model_config,

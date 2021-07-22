@@ -207,7 +207,7 @@ def synth_samples(
         src_len = text_lens[i].item()
         mel_len = pred_lens[i].item()
         reduced_mel_len = reduced_pred_lens[i].item()
-        mel_prediction = predictions[i, :mel_len].transpose(0, 1)
+        mel_prediction = np.transpose(predictions[i, :mel_len], [1, 0])
 
         attn_keys, attn_values = list(), list()
         for key, value in sorted(dec_alignments.items()):
@@ -256,6 +256,7 @@ def plot_mel(data, titles, save_dir=None):
 
     for i in range(len(data)):
         mel = data[i]
+        print(mel.shape)
         axes[i][0].imshow(mel, origin="lower")
         axes[i][0].set_aspect(2.5, adjustable="box")
         axes[i][0].set_ylim(0, mel.shape[0])

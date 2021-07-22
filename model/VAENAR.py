@@ -1,6 +1,3 @@
-import os
-import json
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -26,8 +23,8 @@ class VAENAR(nn.Module):
         self.max_reduction_factor = model_config["common"]["max_reduction_factor"]
 
         self.text_encoder = TransformerEncoder(
-            vocab_size=len(symbols) + 1,
-            embd_dim=model_config["transformer"]["encoder"]["embd_dim"],
+            n_symbols=len(symbols) + 1,
+            embedding_dim=model_config["transformer"]["encoder"]["embd_dim"],
             pre_nconv=model_config["transformer"]["encoder"]["n_conv"],
             pre_hidden=model_config["transformer"]["encoder"]["pre_hidden"],
             pre_conv_kernel=model_config["transformer"]["encoder"]["conv_kernel"],
@@ -35,7 +32,7 @@ class VAENAR(nn.Module):
             prenet_drop_rate=model_config["transformer"]["encoder"]["pre_drop_rate"],
             bn_before_act=model_config["transformer"]["encoder"]["bn_before_act"],
             pos_drop_rate=model_config["transformer"]["encoder"]["pos_drop_rate"],
-            nblk=model_config["transformer"]["encoder"]["n_blk"],
+            n_blocks=model_config["transformer"]["encoder"]["n_blk"],
             attention_dim=model_config["transformer"]["encoder"]["attention_dim"],
             attention_heads=model_config["transformer"]["encoder"]["attention_heads"],
             attention_temperature=model_config["transformer"]["encoder"]["attention_temperature"],
@@ -78,8 +75,8 @@ class VAENAR(nn.Module):
             attention_dim=model_config["transformer"]["prior"]["attention_dim"],
             attention_heads=model_config["transformer"]["prior"]["attention_heads"],
             temperature=model_config["transformer"]["prior"]["temperature"],
-            ffn_hidden=model_config["transformer"]["prior"]["ffn_hidden"],
-            inverse=model_config["transformer"]["prior"]["inverse"])
+            ffn_hidden=model_config["transformer"]["prior"]["ffn_hidden"]
+        )
 
     @staticmethod
     def _get_activation(activation):
@@ -115,6 +112,8 @@ class VAENAR(nn.Module):
             return torch.mean(kl)
         else:
             return kl
+        # kl = F.kl_div(p, F.softmax(q, dim=1))
+        # return kl
 
     @staticmethod
     def _length_l2_loss(predicted_lengths, target_lengths, reduce=False):
@@ -126,16 +125,16 @@ class VAENAR(nn.Module):
             return torch.square(log_pre_lengths - log_tgt_lengths)
 
     def forward(
-        self,
-        speakers,
-        inputs,
-        text_lengths,
-        max_src_len,
-        mel_targets=None,
-        mel_lengths=None,
-        max_mel_len=None,
-        reduction_factor=2,
-        reduce_loss=False,
+            self,
+            speakers,
+            inputs,
+            text_lengths,
+            max_src_len,
+            mel_targets=None,
+            mel_lengths=None,
+            max_mel_len=None,
+            reduction_factor=2,
+            reduce_loss=False,
     ):
         """
         :param speakers: speaker inputs, [batch, ]
@@ -168,36 +167,36 @@ class VAENAR(nn.Module):
         length_loss = self._length_l2_loss(
             predicted_lengths, mel_lengths, reduce=reduce_loss)
         logvar, mu, post_alignments = self.posterior(reduced_mels, text_embd,
-                                                    src_lengths=text_lengths,
-                                                    target_lengths=reduced_mel_lens)
+                                                     src_lengths=text_lengths,
+                                                     target_lengths=reduced_mel_lens)
 
         # prepare batch
         # samples, eps: [batch, n_sample, mel_max_time, dim]
         samples, eps = self.posterior.reparameterize(mu, logvar, self.n_sample)
         # [batch, n_sample]
-        posterior_logprobs = self.posterior.log_probability(
-            mu, logvar, eps=eps, seq_lengths=reduced_mel_lens)
+        posterior_logprobs = self.posterior.log_probability(mu, logvar, eps=eps, seq_lengths=reduced_mel_lens)
+
         # [batch*n_sample, mel_max_len, dim]
         batched_samples = samples.view(batch_size * self.n_sample, reduced_mel_max_len, -1)
         # [batch*n_sample, text_max_len, dim]
         batched_text_embd = torch.tile(
-                text_embd.unsqueeze(1),
-                [1, self.n_sample, 1, 1]).view(batch_size * self.n_sample, text_max_len, -1)
+            text_embd.unsqueeze(1),
+            [1, self.n_sample, 1, 1]).view(batch_size * self.n_sample, text_max_len, -1)
         batched_mel_targets = torch.tile(
-                mel_targets.unsqueeze(1),
-                [1, self.n_sample, 1, 1]).view(batch_size * self.n_sample, mel_max_len, -1)
+            mel_targets.unsqueeze(1),
+            [1, self.n_sample, 1, 1]).view(batch_size * self.n_sample, mel_max_len, -1)
         # [batch*n_sample, ]
         batched_mel_lengths = torch.tile(
-                mel_lengths.unsqueeze(1),
-                [1, self.n_sample]).view(-1)
+            mel_lengths.unsqueeze(1),
+            [1, self.n_sample]).view(-1)
         # [batch*n_sample, ]
         batched_r_mel_lengths = torch.tile(
-                reduced_mel_lens.unsqueeze(1),
-                [1, self.n_sample]).view(-1)
+            reduced_mel_lens.unsqueeze(1),
+            [1, self.n_sample]).view(-1)
         # [batch*n_sample, ]
         batched_text_lengths = torch.tile(
-                text_lengths.unsqueeze(1),
-                [1, self.n_sample]).view(-1)
+            text_lengths.unsqueeze(1),
+            [1, self.n_sample]).view(-1)
 
         # decoding
         decoded_initial, decoded_outs, dec_alignments = self.decoder(
@@ -216,27 +215,31 @@ class VAENAR(nn.Module):
                                                     z_lengths=batched_r_mel_lengths,
                                                     condition_lengths=batched_text_lengths)
         prior_logprobs = prior_logprobs.view(batch_size, self.n_sample)
+
         kl_divergence = self._kl_divergence(posterior_logprobs, prior_logprobs, reduce_loss)
 
-        return decoded_outs, l2_loss, kl_divergence, length_loss, dec_alignments, reduced_mel_lens
+        return (decoded_outs, l2_loss, kl_divergence, length_loss, dec_alignments, reduced_mel_lens,
+                posterior_logprobs, prior_logprobs)
 
-    def inference(self, inputs, mel_lengths, text_lengths=None, reduction_factor=2):
-        reduced_mel_lens = (mel_lengths + reduction_factor - 1) // reduction_factor
+    def inference(self, inputs, text_lengths, reduction_factor=2):
         text_pos_step = self.mel_text_len_ratio / float(reduction_factor)
         text_embd = self.text_encoder(inputs, text_lengths, pos_step=text_pos_step)
-        prior_latents, prior_logprobs = self.prior.sample(reduced_mel_lens,
-                                                          text_embd,
-                                                          text_lengths)
+        predicted_mel_lengths = (self.length_predictor(text_embd, text_lengths) + 80).long()
+        reduced_mel_lens = (predicted_mel_lengths + reduction_factor - 1) // reduction_factor
+
+        prior_latents, prior_logprobs = self.prior(reduced_mel_lens, text_embd, text_lengths)
+
         _, predicted_mel, dec_alignments = self.decoder(
             inputs=prior_latents, text_embd=text_embd, z_lengths=reduced_mel_lens,
             text_lengths=text_lengths, reduction_factor=reduction_factor)
-        return predicted_mel, dec_alignments
+        return predicted_mel, predicted_mel_lengths, reduced_mel_lens, dec_alignments, prior_logprobs
 
     def init(self, text_inputs, mel_lengths, text_lengths=None):
-        reduced_mel_lens = (mel_lengths + self.max_reduction_factor - 1) // self.max_reduction_factor
         text_pos_step = self.mel_text_len_ratio / float(self.max_reduction_factor)
         text_embd = self.text_encoder(text_inputs, text_lengths, pos_step=text_pos_step)
-        prior_latents, prior_logprobs = self.prior.init(conditions=text_embd,
+        reduced_mel_lens = (mel_lengths + self.max_reduction_factor - 1) // self.max_reduction_factor
+
+        prior_latents, prior_logprobs = self.prior.init(inputs=text_embd,
                                                         targets_lengths=reduced_mel_lens,
                                                         condition_lengths=text_lengths)
         _, predicted_mel, _ = self.decoder(inputs=prior_latents,

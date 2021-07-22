@@ -1,59 +1,51 @@
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
+from math import sqrt
 
-from .utils import Conv1D, ConvPreNet, PositionalEncoding
-from .attention import SelfAttentionBLK
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-
-class BaseEncoder(nn.Module):
-    def __init__(self, vocab_size, embd_dim):
-        super(BaseEncoder, self).__init__()
-        self.emb_layer = nn.Embedding(num_embeddings=vocab_size,
-                                        embedding_dim=embd_dim,
-                                        padding_idx=0)
-
-    def forward(self, inputs, input_lengths=None):
-        """
-        :param inputs: text inputs, [batch, max_time]
-        :param input_lengths: text inputs' lengths, [batch]
-        :return: (tensor1, tensor2)
-                tensor1: text encoding, [batch, max_time, hidden_size]
-                tensor2: global state, i.e., final_time_state, [batch, hidden_size]
-        """
-        raise NotImplementedError
+from .utils import ConvPreNet, PositionalEncoding
+from .attention import SelfAttentionBlock
 
 
-class TransformerEncoder(BaseEncoder):
-    def __init__(self, vocab_size, embd_dim, pre_nconv, pre_hidden, pre_conv_kernel,
-                 prenet_drop_rate, pre_activation, bn_before_act, pos_drop_rate, nblk,
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+class TransformerEncoder(nn.Module):
+    def __init__(self, n_symbols, embedding_dim, pre_nconv, pre_hidden, pre_conv_kernel,
+                 prenet_drop_rate, pre_activation, bn_before_act, pos_drop_rate, n_blocks,
                  attention_dim, attention_heads, attention_temperature, ffn_hidden):
-        super(TransformerEncoder, self).__init__(vocab_size, embd_dim)
-        self.pos_weight = nn.Parameter(torch.tensor(1.0, device=device))
+        super(TransformerEncoder, self).__init__()
+        self.embedding = nn.Embedding(num_embeddings=n_symbols,
+                                      embedding_dim=embedding_dim,
+                                      padding_idx=0)
+        std = sqrt(2.0 / (n_symbols + embedding_dim))
+        val = sqrt(3.0) * std  # uniform bounds for std
+        self.embedding.weight.data.uniform_(-val, val)
+
         self.prenet = ConvPreNet(nconv=pre_nconv, hidden=pre_hidden,
                                  conv_kernel=pre_conv_kernel, drop_rate=prenet_drop_rate,
                                  activation=pre_activation, bn_before_act=bn_before_act)
+
+        self.register_parameter("pos_weight", nn.Parameter(torch.tensor(1.0)))
         self.pe = PositionalEncoding()
         self.pe_dropout = nn.Dropout(p=pos_drop_rate)
+
         self.self_attentions = nn.ModuleList(
             [
-                SelfAttentionBLK(
+                SelfAttentionBlock(
                     input_dim=pre_hidden, attention_dim=attention_dim,
                     attention_heads=attention_heads, attention_temperature=attention_temperature,
                     ffn_hidden=ffn_hidden)
-                for i in range(nblk)
+                for i in range(n_blocks)
             ]
         )
 
     def forward(self, inputs, input_lengths=None, pos_step=1.0):
         # print('tracing back at text encoding')
-        embs = self.emb_layer(inputs)
+        embs = self.embedding(inputs)
         prenet_outs = self.prenet(embs)
-        max_time = prenet_outs.shape[1]
-        dim = prenet_outs.shape[2]
-        pos = self.pe.positional_encoding(max_time, dim, device, pos_step)
+        max_time, prenet_dim = prenet_outs.size(1), prenet_outs.size(2)
+        pos = self.pe.positional_encoding(max_time, prenet_dim, inputs.device, pos_step)
         pos_embs = prenet_outs + self.pos_weight * pos
         pos_embs = self.pe_dropout(pos_embs)
         att_outs = pos_embs

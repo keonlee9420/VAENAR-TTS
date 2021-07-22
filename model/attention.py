@@ -6,7 +6,7 @@ import math
 from .utils import LinearNorm, FFN
 from utils.tools import get_mask_from_lengths
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class BaseAttention(nn.Module):
@@ -27,7 +27,7 @@ class BaseAttention(nn.Module):
         raise NotImplementedError
 
     @staticmethod
-    def _get_key_mask(batch_size, memory_max_time, query_max_time, memory_lengths, query_lengths):
+    def _get_key_mask(batch_size, memory_max_time, query_max_time, memory_lengths, query_lengths, device):
         memory_lengths = (memory_lengths if memory_lengths is not None
                           else torch.ones(batch_size, dtype=torch.int32, device=device) * memory_max_time)
         memeory_mask = get_mask_from_lengths(memory_lengths, memory_max_time)
@@ -81,7 +81,7 @@ class MultiHeadScaledProductAttention(BaseAttention):
         return reshaped
 
     def _get_key_mask(self, batch_size, memory_max_time, query_max_time,
-                      memory_lengths, query_lengths):
+                      memory_lengths, query_lengths, device):
         memory_lengths = (memory_lengths if memory_lengths is not None
                           else torch.ones(batch_size, dtype=torch.int32, device=device) * memory_max_time)
         memory_mask = get_mask_from_lengths(memory_lengths, memory_max_time)  # [batch, m_max_time]
@@ -100,7 +100,7 @@ class MultiHeadScaledProductAttention(BaseAttention):
 
     @staticmethod
     def _get_causal_mask(logits):
-        causal_mask = torch.tril(torch.ones(logits.shape, dtype=torch.bool, device=device))
+        causal_mask = torch.tril(torch.ones(logits.shape, dtype=torch.bool, device=logits.device))
         return causal_mask
 
     def forward(self, inputs, memory, memory_lengths=None, query_lengths=None, causality=None):
@@ -120,7 +120,7 @@ class MultiHeadScaledProductAttention(BaseAttention):
         memory_max_time = memory.shape[1]
         query_max_time = inputs.shape[1]
         length_mask = self._get_key_mask(
-            batch_size, memory_max_time, query_max_time, memory_lengths, query_lengths)
+            batch_size, memory_max_time, query_max_time, memory_lengths, query_lengths, inputs.device)
         if causality:
             causal_mask = self._get_causal_mask(logits)
             length_mask = torch.logical_and(length_mask, causal_mask)
@@ -134,10 +134,10 @@ class MultiHeadScaledProductAttention(BaseAttention):
         return contexts, alignments
 
 
-class SelfAttentionBLK(nn.Module):
+class SelfAttentionBlock(nn.Module):
     def __init__(self, input_dim, attention_dim, attention_heads, attention_temperature,
                  ffn_hidden):
-        super(SelfAttentionBLK, self).__init__()
+        super(SelfAttentionBlock, self).__init__()
         self.input_dim = input_dim
         self.attention_dim = attention_dim
         self.attention = MultiHeadScaledProductAttention(attention_dim=attention_dim,
@@ -161,10 +161,10 @@ class SelfAttentionBLK(nn.Module):
         return ffn_outs, alignments
 
 
-class CrossAttentionBLK(nn.Module):
+class CrossAttentionBlock(nn.Module):
     def __init__(self, input_dim, memory_dim, attention_dim, attention_heads, attention_temperature,
                  ffn_hidden, name=None):
-        super(CrossAttentionBLK, self).__init__()
+        super(CrossAttentionBlock, self).__init__()
         self.name = name
         self.input_dim = input_dim
         self.attention_dim = attention_dim

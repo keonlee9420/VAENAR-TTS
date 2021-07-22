@@ -24,7 +24,8 @@ def evaluate(
         logger=None,
         vocoder=None,
         audio_processor=None,
-        losses_len=4):
+        losses_len=4,
+        device="cuda:0"):
     preprocess_config, model_config, train_config = configs
 
     # Get dataset
@@ -46,7 +47,7 @@ def evaluate(
             batch = to_device(batch, device)
             with torch.no_grad():
                 # Forward
-                predictions, mel_l2, kl_divergence, length_l2, dec_alignments, reduced_mel_lens = model(
+                (predictions, mel_l2, kl_divergence, length_l2, dec_alignments, reduced_mel_lens, *_) = model(
                     *(batch[2:]),
                     reduce_loss=True,
                     reduction_factor=reduction_factor

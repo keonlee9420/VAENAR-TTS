@@ -101,7 +101,7 @@ def main(args, configs):
                         model.init(text_inputs=batch[2:][1], mel_lengths=batch[2:][5], text_lengths=batch[2:][2])
 
                 # Forward
-                predictions, mel_l2, kl_divergence, length_l2, dec_alignments, reduced_mel_lens = model(
+                (predictions, mel_l2, kl_divergence, length_l2, dec_alignments, reduced_mel_lens, *_) = model(
                     *(batch[2:]),
                     reduce_loss=True,
                     reduction_factor=reduction_factor
@@ -186,7 +186,8 @@ def main(args, configs):
                         val_logger,
                         vocoder,
                         audio_processor,
-                        len(losses)
+                        len(losses),
+                        device,
                     )
                     with open(os.path.join(val_log_path, "log.txt"), "a") as f:
                         f.write(message + "\n")

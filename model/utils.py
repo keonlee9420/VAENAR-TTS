@@ -4,25 +4,24 @@ from torch.nn import functional as F
 
 
 class LinearNorm(nn.Module):
-    def __init__(self, in_features, out_features, activation=None, 
-            use_bias=True, kernel_initializer='glorot_uniform', bias_initializer='zeros'):
+    def __init__(self, in_features, out_features, activation=None,
+                 use_bias=True, kernel_initializer='glorot_uniform', bias_initializer='zeros'):
         super(LinearNorm, self).__init__()
         self.linear = nn.Linear(
             in_features=in_features,
             out_features=out_features,
             bias=use_bias)
-
         # init weight
         if kernel_initializer == 'glorot_uniform':
             nn.init.xavier_uniform_(self.linear.weight)
         elif kernel_initializer == 'zeros':
             nn.init.zeros_(self.linear.weight)
-
         # init bias
         if use_bias:
             if bias_initializer == 'zeros':
                 nn.init.constant_(self.linear.bias, 0.0)
-
+            else:
+                raise NotImplementedError
         self.activation = activation if activation is not None else nn.Identity()
 
     def forward(self, x):
@@ -32,14 +31,14 @@ class LinearNorm(nn.Module):
 
 class ConvNorm(nn.Module):
     def __init__(
-        self, in_channels, out_channels, kernel_size=1, stride=1, 
-            padding=None, dilation=1, activation=None, 
+            self, in_channels, out_channels, kernel_size=1, stride=1,
+            padding=None, dilation=1, activation=None,
             use_bias=True, kernel_initializer='glorot_uniform', bias_initializer='zeros'):
         super(ConvNorm, self).__init__()
 
         self.conv = nn.Conv1d(in_channels, out_channels, kernel_size=kernel_size,
-            stride=stride, padding=padding, dilation=dilation, bias=use_bias
-        )
+                              stride=stride, padding=padding, dilation=dilation, bias=use_bias
+                              )
 
         # init weight
         if kernel_initializer == 'glorot_uniform':
@@ -82,7 +81,7 @@ class ConvPreNet(nn.Module):
         self.conv_stack = nn.ModuleList(
             [
                 Conv1D(in_channels=hidden, out_channels=hidden, kernel_size=conv_kernel, activation=activation,
-                        drop_rate=drop_rate, bn_before_act=bn_before_act)
+                       drop_rate=drop_rate, bn_before_act=bn_before_act)
                 for i in range(nconv)
             ]
         )
@@ -118,12 +117,12 @@ class Conv1D(nn.Module):
                  bn_before_act=False, strides=1):
         super(Conv1D, self).__init__()
         self.conv1d = ConvNorm(in_channels=in_channels,
-                                out_channels=out_channels,
-                                kernel_size=kernel_size,
-                                stride=strides,
-                                padding=int((kernel_size - 1) / 2),
-                                dilation=1,
-                                activation=None)
+                               out_channels=out_channels,
+                               kernel_size=kernel_size,
+                               stride=strides,
+                               padding=int((kernel_size - 1) / 2),
+                               dilation=1,
+                               activation=None)
         self.activation = activation if activation is not None else nn.Identity()
         self.bn = nn.BatchNorm1d(out_channels)
         self.dropout = nn.Dropout(p=drop_rate)
@@ -152,8 +151,9 @@ class PostNet(nn.Module):
         activations = [nn.Tanh()] * (n_conv - 1) + [nn.Identity()]
         self.conv_stack = nn.ModuleList(
             [
-                Conv1D(in_channels=hidden if i==0 else conv_filters, out_channels=conv_filters, kernel_size=conv_kernel, 
-                        activation=activations[i], drop_rate=drop_rate)
+                Conv1D(in_channels=hidden if i == 0 else conv_filters, out_channels=conv_filters,
+                       kernel_size=conv_kernel,
+                       activation=activations[i], drop_rate=drop_rate)
                 for i in range(n_conv)
             ]
         )

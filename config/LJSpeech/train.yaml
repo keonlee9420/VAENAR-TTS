@@ -1,7 +1,7 @@
 path:
-  ckpt_path: "./output/ckpt/LJSpeech"
-  log_path: "./output/log/LJSpeech"
-  result_path: "./output/result/LJSpeech"
+  ckpt_path: "./output/ckpt/LJSpeech_pr"
+  log_path: "./output/log/LJSpeech_pr"
+  result_path: "./output/result/LJSpeech_pr"
 optimizer:
   batch_size: 32
   betas: [0.9, 0.999]
@@ -22,6 +22,6 @@ length:
   length_weight: 1.
 kl:
   kl_weight: 1.
-  kl_weight_init: 0.00001
-  kl_weight_increase_epoch: 1
+  kl_weight_init: 0.00000001
+  kl_weight_increase_epoch: 1000
   kl_weight_end: 0.00001
