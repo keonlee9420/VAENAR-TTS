@@ -256,7 +256,6 @@ def plot_mel(data, titles, save_dir=None):
 
     for i in range(len(data)):
         mel = data[i]
-        print(mel.shape)
         axes[i][0].imshow(mel, origin="lower")
         axes[i][0].set_aspect(2.5, adjustable="box")
         axes[i][0].set_ylim(0, mel.shape[0])

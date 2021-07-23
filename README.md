@@ -16,11 +16,11 @@ pip3 install -r requirements.txt
 
 ## Inference
 
-You have to download the [pretrained models]() and put them in ``output/ckpt/LJSpeech/``.
+You have to download the [pretrained models](https://drive.google.com/drive/folders/1-zgh0ltDHfjYT0i5xsNCjg-MsDDrhga7?usp=sharing) and put them in ``output/ckpt/LJSpeech/``.
 
 For English single-speaker TTS, run
 ```
-python3 synthesize.py --text "YOUR_DESIRED_TEXT" --restore_step 900000 --mode single -p config/LJSpeech/preprocess.yaml -m config/LJSpeech/model.yaml -t config/LJSpeech/train.yaml
+python3 synthesize.py --text "YOUR_DESIRED_TEXT" --restore_step RESTORE_STEP --mode single -p config/LJSpeech/preprocess.yaml -m config/LJSpeech/model.yaml -t config/LJSpeech/train.yaml
 ```
 The generated utterances will be put in ``output/result/``.
 
@@ -29,7 +29,7 @@ The generated utterances will be put in ``output/result/``.
 Batch inference is also supported, try
 
 ```
-python3 synthesize.py --source preprocessed_data/LJSpeech/val.txt --restore_step 900000 --mode batch -p config/LJSpeech/preprocess.yaml -m config/LJSpeech/model.yaml -t config/LJSpeech/train.yaml
+python3 synthesize.py --source preprocessed_data/LJSpeech/val.txt --restore_step RESTORE_STEP --mode batch -p config/LJSpeech/preprocess.yaml -m config/LJSpeech/model.yaml -t config/LJSpeech/train.yaml
 ```
 to synthesize all utterances in ``preprocessed_data/LJSpeech/val.txt``
 
@@ -68,11 +68,11 @@ tensorboard --logdir output/log/LJSpeech
 ```
 
 to serve TensorBoard on your localhost.
-<!-- The loss curves, synthesized mel-spectrograms, and audios are shown.
+The loss curves, synthesized mel-spectrograms, and audios are shown.
 
 ![](./img/tensorboard_loss.png)
 ![](./img/tensorboard_spec.png)
-![](./img/tensorboard_audio.png) -->
+![](./img/tensorboard_audio.png)
 
 # Implementation Issues
 
