@@ -6,6 +6,16 @@ PyTorch Implementation of [VAENAR-TTS: Variational Auto-Encoder based Non-AutoRe
     <img src="img/model.png" width="80%">
 </p>
 
+The validation logs up to 70K of synthesized mel and alignment are shown below (LJSpeech_val_dec_attn_0_LJ029-0157 and LJSpeech_val_step_LJ029-0157 from top to bottom).
+
+<p align="center">
+    <img src="./img/LJSpeech_val_dec_attn_0_LJ029-0157.gif" width="80%">
+</p>
+
+<p align="center">
+    <img src="./img/LJSpeech_val_LJ029-0157.gif" width="80%">
+</p>
+
 # Quickstart
 
 ## Dependencies
